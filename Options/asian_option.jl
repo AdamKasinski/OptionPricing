@@ -10,7 +10,7 @@ function asian_option_monte_carlo(S₀::Float64, num_of_sim::Int64, T::Int64, μ
         Random.seed!(iteration)
         b::Vector{Float64} = rand(d, T)
         asset_prices::Vector{Float64} = [S₀ * exp((μ - 0.5 * σ^2) * k + σ * ∑(b[1:k-1])) for k in 1:T]
-        Sₖ[iteration] = max(mean(asset_prices)-K,0)*ℯ^(-r*T)
+        Sₖ[iteration] = max(mean(asset_prices)-K,0)*ℯ^(-r*T) #TO DO: add variable: moments when value of asset is frozen and took to average calculation
     end
 
 

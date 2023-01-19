@@ -17,11 +17,12 @@ function altiplano_option_monte_carlo(C::Float64,mu::Float64, A::Matrix{Float64}
             rtrn[iteration] = C*ℯ^(-r*T)
         end
 
-        θ::Float64 = mean(rtrn)
-        s::Float64 = std(rtrn)
-        confidence::Float64 = quantile(Normal(), 1-α/2)
-
     end
+
+    θ::Float64 = mean(rtrn)
+    s::Float64 = std(rtrn)
+    confidence::Float64 = quantile(Normal(), 1-α/2)
+    
     return θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)
 end
 

@@ -1,7 +1,7 @@
 using LinearAlgebra, Distributions, Statistics
 
 
-function price_basket_normal(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
+function price_altiplano_normal(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
     d = Normal()
     Z = rand(d,(basket_volume,T))
     cholesky_matrix = cholesky(correlation_matrix).L
@@ -18,7 +18,7 @@ function price_basket_normal(T, treshold, r, K, C,periods, basket_volume, S₀, 
     end
 end
 
-function price_basket_antithetic_variates(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
+function price_altiplano_antithetic_variates(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
     d = Normal()
     Z = rand(d,(basket_volume,T))
     cholesky_matrix = cholesky(correlation_matrix).L
@@ -48,9 +48,9 @@ function altiplano_option_monte_carlo(num_of_sim, α, T, treshold, r, K, C,perio
     end
     rtrn::Array{Float64,1} = zeros(len)
     if method == "basic"
-        rtrn = [price_basket_normal(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_altiplano_normal(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
-        rtrn = [price_basket_antithetic_variates(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:Int(round(num_of_sim)/2)]
+        rtrn = [price_altiplano_antithetic_variates(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:Int(round(num_of_sim)/2)]
     end
     θ::Float64 = mean(rtrn)
     s::Float64 = std(rtrn)

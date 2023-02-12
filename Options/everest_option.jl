@@ -11,7 +11,7 @@ function price_everest_normal(Notional,T, r, C, basket_volume, S₀, mu, sigma, 
         assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
     end
 
-    worst_performing = argmin(@views (assets[:,end] - assets[:,1])/assets[:,1])
+    worst_performing = argmin(@views (assets[:,end] - assets[:,1])./assets[:,1])
 
     return Notional*(C+assets[worst_performing,end])*ₑ^(-r*T)
     
@@ -30,7 +30,7 @@ function price_everest_antithetic_variates(Notional,T, r, C, basket_volume, S₀
         antithetic_assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(antithetic_delta[1:k-1,asset])) for k in 1:T]
     end
 
-    worst_performing = minimum(@views (assets[:,end] - assets[:,1])/assets[:,1])
+    worst_performing = minimum(@views (assets[:,end] - assets[:,1])./assets[:,1])
     antithetic_worst_performing = minimum(@views (antithetic_assets[:,end] - antithetic_assets[:,1])/antithetic_assets[:,1])
 
     return Notional*0.5*(C+worst_performing+antithetic_worst_performing)*ₑ^(-r*T)

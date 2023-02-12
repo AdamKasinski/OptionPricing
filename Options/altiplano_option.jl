@@ -11,7 +11,7 @@ function price_altiplano_normal(T, treshold, r, K, C,periods, basket_volume, S�
         assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
     end
 
-    if any(x->x < treshold, assets./S₀)
+    if any(x->x > treshold, assets./S₀)
         return max(sum(assets[:,periods]./S₀)*ℯ^(-r*T)-K,0)
     else
         return C*ℯ^(-r*T)
@@ -31,7 +31,7 @@ function price_altiplano_antithetic_variates(T, treshold, r, K, C,periods, baske
         antithetic_assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(antithetic_delta[1:k-1,asset])) for k in 1:T]
     end
 
-    if any(x->x < treshold, assets./S₀) || any(x->x < treshold, antithetic_assets./S₀)
+    if any(x->x > treshold, assets./S₀) || any(x->x < treshold, antithetic_assets./S₀)
         return 0.5*(max(sum(assets[:,periods]./S₀)*ℯ^(-r*T)-K,0) + max(sum(antithetic_assets[:,periods]./S₀)*ℯ^(-r*T)-K,0))
     else
         return C*ℯ^(-r*T)

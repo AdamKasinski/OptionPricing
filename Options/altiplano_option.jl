@@ -1,4 +1,4 @@
-using LinearAlgebra, Distributions, Statistics
+using LinearAlgebra, Distributions, Statistics, Sobol
 
 
 function price_altiplano_normal(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
@@ -33,6 +33,23 @@ function price_altiplano_antithetic_variates(T, treshold, r, K, C,periods, baske
 
     if any(x->x > treshold, assets./S₀) || any(x->x < treshold, antithetic_assets./S₀)
         return 0.5*(max(sum(assets[:,periods]./S₀)*ℯ^(-r*T)-K,0) + max(sum(antithetic_assets[:,periods]./S₀)*ℯ^(-r*T)-K,0))
+    else
+        return C*ℯ^(-r*T)
+    end
+end
+
+function price_altiplano_quasi_monte_carlo(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
+    s = SobolSeq(basket_volume)
+    Z = reduce(hcat, next!(s) for i = 1:T)
+    cholesky_matrix = cholesky(correlation_matrix).L
+    delta = Z'cholesky_matrix
+    assets = zeros(basket_volume,T)
+    for asset in 1:basket_volume
+        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
+    end
+
+    if any(x->x > treshold, assets./S₀)
+        return max(sum(assets[:,periods]./S₀)*ℯ^(-r*T)-K,0)
     else
         return C*ℯ^(-r*T)
     end

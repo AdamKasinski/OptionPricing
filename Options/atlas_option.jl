@@ -1,9 +1,25 @@
-using LinearAlgebra, Distributions, Statistics
+using LinearAlgebra, Distributions, Statistics, Sobol
 
 
 function price_atlas_normal(Notional, T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) # TODO: add types, n1/2 - amount of worst/best performing
     d = Normal()
     Z = rand(d,(basket_volume,T))
+    cholesky_matrix = cholesky(correlation_matrix).L
+    delta = Z'cholesky_matrix
+    assets = zeros(basket_volume,T)
+    for asset in 1:basket_volume
+        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
+    end
+
+    remaining_stocks = sortperm(@views (assets[:,end] - assets[:,1])./assets[:,1])[n1:end-n2-1]
+
+    return Notional * (1+maximum(0,mean(assets[remaining_stocks,end])-K))*ₑ^(-r*T)
+
+end
+
+function price_atlas_quasi_monte_carlo(Notional, T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) # TODO: add types, n1/2 - amount of worst/best performing
+    s = SobolSeq(basket_volume)
+    Z = reduce(hcat, next!(s) for i = 1:T)
     cholesky_matrix = cholesky(correlation_matrix).L
     delta = Z'cholesky_matrix
     assets = zeros(basket_volume,T)

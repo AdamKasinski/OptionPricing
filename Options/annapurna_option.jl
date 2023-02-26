@@ -18,6 +18,27 @@ function price_annapurna_normal(T, treshold, r, K, C,periods, basket_volume, S�
     end
 end
 
+function price_annapurna_moment_matching(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
+    d = Normal()
+    Z = rand(d,(basket_volume,T))
+    cholesky_matrix = cholesky(correlation_matrix).L
+    delta = Z'cholesky_matrix
+    assets = zeros(basket_volume,T)
+    for asset in 1:basket_volume
+        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
+    end
+
+    S₀s = reshape(repeat(assets[:,1],T),basket_volume,T)
+    S₀df = S₀s.*[ℯ^(-r*t) for t in 1:T]'
+    assets =  assets.*S₀df./mean(assets,dims=2)
+    
+    if any(x->x < treshold, assets./S₀)
+        return max(sum(assets[:,periods]./S₀)*ℯ^(-r*T)-K,0)
+    else
+        return C*ℯ^(-r*T)
+    end
+end
+
 function price_annapurna_quasi_monte_carlo(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) # TODO: add types
     s = SobolSeq(basket_volume)
     Z = reduce(hcat, next!(s) for i = 1:T)

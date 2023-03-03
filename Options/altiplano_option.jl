@@ -38,7 +38,7 @@ end
 
 
 function price_altiplano_antithetic_variates(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
-                                            basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
+                            basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
     d = Normal()
     Z::Matrix{Float64} = rand(d,(basket_volume,T))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
@@ -59,7 +59,7 @@ function price_altiplano_antithetic_variates(T::Int, treshold::Float64, r::Float
 end
 
 function price_altiplano_quasi_monte_carlo(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
-                                            basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
+                            basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
     s = SobolSeq(basket_volume)
     Z::Matrix{Float64} = reduce(hcat, next!(s) for i = 1:T)
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
@@ -77,7 +77,7 @@ function price_altiplano_quasi_monte_carlo(T::Int, treshold::Float64, r::Float64
 end
 
 function price_altiplano_moment_matching(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
-                                        basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
+                        basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
     d = Normal()
     Z::Matrix{Float64} = rand(d,(basket_volume,T))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
@@ -99,7 +99,7 @@ function price_altiplano_moment_matching(T::Int, treshold::Float64, r::Float64, 
 end
 
 function altiplano_option_monte_carlo(num_of_sim::Int, α::Float64, T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
-                                    basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64},method="non antithetic")
+        basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64},method="basic")
     len = num_of_sim
     if method == "antithetic"
         len = Int(round(num_of_sim/2))

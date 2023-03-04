@@ -166,9 +166,3 @@ function himalayan_option_monte_carlo(num_of_sim::Int, α::Float64,r::Float64, b
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]
 end
                                 
-
-
-
-cov_matrix = [1.0 0.3 0.4; 0.3 1.0 0.1; 0.4 0.1 1.0] 
-
-himalayan_option_monte_carlo(100,.05,.02,3,[10,10,10],[.02,.02,.02],[.002,.002,.002],cov_matrix,"basic")

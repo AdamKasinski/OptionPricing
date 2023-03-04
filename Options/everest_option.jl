@@ -96,7 +96,7 @@ function price_everest_antithetic_variates(Notional::Float64,T::Int, r::Float64,
 end
 
 
-function antithetic_variates_option_monte_carlo(num_of_sim::Int, α::Float64, Notional::Float64,T::Int, r::Float64, C::Float64, basket_volume::Int, 
+function atlas_option_monte_carlo(num_of_sim::Int, α::Float64, Notional::Float64,T::Int, r::Float64, C::Float64, basket_volume::Int, 
                                                 S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},method="basic")
     len = num_of_sim
     if method == "antithetic"
@@ -105,15 +105,15 @@ function antithetic_variates_option_monte_carlo(num_of_sim::Int, α::Float64, No
     rtrn::Array{Float64,1} = zeros(len)
 
     if method == "basic"
-        rtrn = [price_annapurna_normal(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_everest_normal(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
-        rtrn = [price_annapurna_antithetic_variates(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:Int(round(num_of_sim)/2)]
+        rtrn = [price_everest_antithetic_variates(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:Int(round(num_of_sim)/2)]
     elseif method == "quasi_monte_carlo"
-        rtrn = [price_annapurna_quasi_monte_carlo(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_everest_quasi_monte_carlo(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "moment_matching"
-        rtrn = [price_annapurna_moment_matching(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_everest_moment_matching(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "LHS"
-        rtrn = [price_annapurna_LHS(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_everest_LHS(Notional, T, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     else
         return "no method found"
     end

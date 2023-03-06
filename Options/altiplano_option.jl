@@ -60,8 +60,8 @@ end
 
 function price_altiplano_quasi_monte_carlo(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
                             basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
-    s = SobolSeq(basket_volume)
-    Z::Matrix{Float64} = reduce(hcat, next!(s) for i = 1:T)
+    s = SobolSeq(-1,1)
+    Z::Matrix{Float64} = reshape(reduce(hcat, next!(s) for i = 1:T*basket_volume),basket_volume,T)
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
     assets::Matrix{Float64} = zeros(basket_volume,T)
@@ -87,7 +87,7 @@ function price_altiplano_moment_matching(T::Int, treshold::Float64, r::Float64, 
         assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
     end
 
-    S₀s::Matrix{Float64} = reshape(repeat(assets[:,1],T),basket_volume,T)
+    S₀s::Matrix{Float64} = reshape(repeat(S₀,T),basket_volume,T)
     S₀df::Matrix{Float64} = S₀s.*[ℯ^(-r*t) for t in 1:T]'
     assets = assets.*S₀df./mean(assets,dims=2)
 

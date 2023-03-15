@@ -18,7 +18,7 @@ function price_annapurna_normal(T::Int, treshold::Float64, r::Float64, K::Float6
     delta::Matrix{Float64} = Z'cholesky_matrix
     assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
-        return max(sum(assets[:,end])*ℯ^(-r*T)-K,0)
+        return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
     else
         return C*ℯ^(-r*T)
     end
@@ -32,7 +32,7 @@ function price_annapurna_LHS(T::Int, treshold::Float64, r::Float64, K::Float64, 
     delta::Matrix{Float64} = Z'cholesky_matrix
     assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
-        return max(sum(assets[:,end])*ℯ^(-r*T)-K,0)
+        return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
     else
         return C*ℯ^(-r*T)
     end
@@ -48,7 +48,7 @@ function price_annapurna_antithetic_variates(T::Int, treshold::Float64, r::Float
     assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
     antithetic_assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,antithetic_delta)
     if any(x->x < treshold, assets./S₀) || any(x->x < treshold, antithetic_assets./S₀)
-        return 0.5*(max(sum(assets[:,end])*ℯ^(-r*T)-K,0) + max(sum(antithetic_assets[:,end])*ℯ^(-r*T)-K,0))
+        return 0.5*(max(mean(assets[:,end])*ℯ^(-r*T)-K,0) + max(mean(antithetic_assets[:,end])*ℯ^(-r*T)-K,0))
     else
         return C*ℯ^(-r*T)
     end
@@ -62,7 +62,7 @@ function price_annapurna_quasi_monte_carlo(T::Int, treshold::Float64, r::Float64
     delta::Matrix{Float64} = Z'cholesky_matrix
     assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
-        return max(sum(assets[:,end])*ℯ^(-r*T)-K,0)
+        return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
     else
         return C*ℯ^(-r*T)
     end
@@ -92,7 +92,7 @@ function price_annapurna_moment_matching(num_of_sim::Int,α::Float64,T::Int, tre
     
     S₀df::Array{Float64} = S₀.*ℯ^(r*T)
     assets_to_calculate::Matrix{Float64} = assets_to_optimise[:,1:how_many_assets_to_optimise].*S₀df./mean(assets_to_optimise[:,1:how_many_assets_to_optimise],dims=2)
-    all_values::Array{Float64} = sum(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
+    all_values::Array{Float64} = mean(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
     all_values[all_values.<=0] .=0
     if length(coupons) !=0
         all_values = hcat(all_values,coupons')

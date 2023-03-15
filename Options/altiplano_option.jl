@@ -120,8 +120,6 @@ function altiplano_option_monte_carlo(num_of_sim::Int, α::Float64, T::Int, tres
         rtrn = [price_altiplano_antithetic_variates(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:Int(round(num_of_sim)/2)]
     elseif method == "quasi_monte_carlo"
         rtrn = [price_altiplano_quasi_monte_carlo(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix,sobolSeq) for iteration in 1:num_of_sim]
-    elseif method == "moment_matching"
-        rtrn = [price_altiplano_moment_matching(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "LHS"
         rtrn = [price_altiplano_LHS(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     else

@@ -1,120 +1,126 @@
 using LinearAlgebra, Distributions, Statistics, Sobol, LatinHypercubeSampling
 
 
-function price_atlas_normal(Notional::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
+function generateBasket(basket_volume::Int,T::Int,S₀::Array{Float64},mu::Array{Float64},sigma::Array{Float64},epsilon::Matrix{Float64})
+    assets::Matrix{Float64} = zeros(basket_volume,T)
+    for t in 1:T
+        assets[:,t] = S₀.*exp.((mu .- 0.5.*sigma.^2).*(1/T) .+ sigma.*sqrt(1/T).*epsilon[t,:])
+        S₀ = assets[:,t]
+    end
+    return assets
+end
+
+function price_atlas_normal(T::Int, r::Float64, K::Float64, basket_volume::Int, 
                             S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int)
     d = Normal()
     Z::Matrix{Float64} = rand(d,(basket_volume,T))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = zeros(basket_volume,T)
-    for asset in 1:basket_volume
-        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
-    end
+    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
+    remaining_stocks = sortperm(@views (assets[:,end] - S₀)./S₀)[n1:end-n2-1]
 
-    remaining_stocks = sortperm(@views (assets[:,end] - assets[:,1])./assets[:,1])[n1:end-n2-1]
-
-    return Notional * (1+maximum(0,mean(assets[remaining_stocks,end])-K))*ₑ^(-r*T)
+    #println(mean(assets[remaining_stocks]))
+    return mean(assets[remaining_stocks])*ℯ^(-r*T) - K
 
 end
 
-function price_atlas_LHS(Notional::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
+#cov_matrix = [1.0 0.3 0.4; 0.3 1.0 0.1; 0.4 0.1 1.0] 
+#println(price_atlas_normal(10,0.003,7.0,3,[10.0,10.0,10.0],[0.07,0.07,0.07],[0.01,0.01,0.01],cov_matrix,1,1))
+
+
+function price_atlas_LHS(T::Int, r::Float64, K::Float64, basket_volume::Int, 
                         S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int) 
-    Z::Matrix{Float64} = randomLHC(basket_volume,T)/10
+    Z::Matrix{Float64} = scaleLHC(randomLHC(T,basket_volume),[(-1,1),(-1,1),(-1,1)])'
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = zeros(basket_volume,T)
-    for asset in 1:basket_volume
-        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
-    end
+    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
 
-    remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - assets[:,1])./assets[:,1])[n1:end-n2-1]
+    remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - S₀)./S₀)[n1:end-n2-1]
 
-    return Notional * (1+maximum(0,mean(assets[remaining_stocks,end])-K))*ₑ^(-r*T)
+    return mean(assets[remaining_stocks])*ℯ^(-r*T) - K
 
 end
 
-function price_atlas_moment_matching(Notional::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
+function price_atlas_moment_matching(num_of_sim::Int, α::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
                                     S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int)
-    d = Normal()
-    Z::Matrix{Float64} = rand(d,(basket_volume,T))
-    cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
-    delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = zeros(basket_volume,T)
-    for asset in 1:basket_volume
-        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
-    end
-
-    S₀s::Matrix{Float64} = reshape(repeat(assets[:,1],T),basket_volume,T)
-    S₀df::Matrix{Float64} = S₀s.*[ℯ^(-r*t) for t in 1:T]'
-    assets =  assets.*S₀df./mean(assets,dims=2)
     
-    remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - assets[:,1])./assets[:,1])[n1:end-n2-1]
-
-    return Notional * (1+maximum(0,mean(assets[remaining_stocks,end])-K))*ₑ^(-r*T)
+    assets_to_optimise::Matrix{Float64} = zeros(basket_volume,num_of_sim)
+    d = Normal()
+    for iteration in 1:num_of_sim
+        Z::Matrix{Float64} = rand(d,(basket_volume,T))
+        cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
+        delta::Matrix{Float64} = Z'cholesky_matrix
+        assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
+        assets_to_optimise[:,iteration] = assets[:,end]
+    end
+    S₀df::Array{Float64} = S₀.*ℯ^(r*T)
+    remaining_stocks::Matrix{Float64} = assets_to_optimise.*S₀df./mean(assets_to_optimise,dims=2)
+    assets_to_calculate::Array{Float64} = zeros(basket_volume-n2-n1,num_of_sim)
+    for asst in 1:num_of_sim
+        stocks_indices = sortperm(@views ((remaining_stocks[:,asst] .- S₀)./S₀))[n1:end-n2-1]
+        assets_to_calculate[:,asst] = remaining_stocks[stocks_indices]
+    end
+    all_values::Array{Float64} = mean(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
+    θ::Float64 = mean(all_values)
+    s::Float64 = std(all_values)
+    confidence::Float64 = quantile(Normal(), 1-α/2)
+    return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]
 
 end
 
-function price_atlas_quasi_monte_carlo(Notional::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
-                                        S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int)
-    s = SobolSeq(basket_volume)
-    Z::Matrix{Float64} = reduce(hcat, next!(s) for i = 1:T)
+    
+function price_atlas_quasi_monte_carlo(T::Int, r::Float64, K::Float64, basket_volume::Int, 
+                                        S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int,sobolSeq)
+    s = sobolSeq
+    Z::Matrix{Float64} = reshape(reduce(hcat, next!(s) for i = 1:T*basket_volume),basket_volume,T)
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = zeros(basket_volume,T)
-    for asset in 1:basket_volume
-        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T] # if dt != 1 the formula will be changed
-    end
+    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
 
-    remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - assets[:,1])./assets[:,1])[n1:end-n2-1]
+    remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] -S₀)./S₀)[n1:end-n2-1]
 
-    return Notional * (1+maximum(0,mean(assets[remaining_stocks,end])-K))*ₑ^(-r*T)
+    return mean(assets[remaining_stocks])*ℯ^(-r*T) - K
 
 end
 
 
 
-function price_atlas_antithetic_variates(Notional::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
+function price_atlas_antithetic_variates(T::Int, r::Float64, K::Float64, basket_volume::Int, 
                                         S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int)
     d = Normal()
     Z::Matrix{Float64} = rand(d,(basket_volume,T))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
     antithetic_delta::Matrix{Float64} = -Z'cholesky_matrix
-    assets::Matrix{Float64} = zeros(basket_volume,T)
-    antithetic_assets::Matrix{Float64} = zeros(basket_volume,T)
-    for asset in 1:basket_volume
-        assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(delta[1:k-1,asset])) for k in 1:T]
-        antithetic_assets[asset,:] = [S₀[asset] * exp((mu[asset] - 0.5 * sigma[asset]^2) * k + sigma[asset] * sum(antithetic_delta[1:k-1,asset])) for k in 1:T]
-    end
+    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
+    antithetic_assets = generateBasket(basket_volume,T,S₀,mu,sigma,antithetic_delta)
 
-    remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - assets[:,1])./assets[:,1])[n1:end-n2-1]
-    antithetic_remaining_stocks::Array{Int} = sortperm(@views (antithetic_assets[:,end] - antithetic_assets[:,1])./antithetic_assets[:,1])[n1:end-n2-1]
+    remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - S₀)./S₀)[n1:end-n2-1]
+    antithetic_remaining_stocks::Array{Int} = sortperm(@views (antithetic_assets[:,end] - S₀)./S₀)[n1:end-n2-1]
 
-    return 0.5*(Notional + maximum(0,mean(assets[remaining_stocks,end])-K) + Notional + maximum(0,mean(antithetic_assets[antithetic_remaining_stocks,end])-K))*ₑ^(-r*T)
+    return 0.5*((mean(assets[remaining_stocks])*ℯ^(-r*T)- K) + (mean(assets[antithetic_remaining_stocks])*ℯ^(-r*T) - K))
 
 end
 
 
 
-function atlas_option_monte_carlo(num_of_sim::Int, α::Float64,Notional::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
-                                S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int)
+function atlas_option_monte_carlo(num_of_sim::Int, α::Float64,T::Int, r::Float64, K::Float64, basket_volume::Int, 
+                            S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int,method="basic")
     len = num_of_sim
     if method == "antithetic"
         len = Int(round(num_of_sim/2))
     end
     rtrn::Array{Float64,1} = zeros(len)
+    sobolSeq = SobolSeq(-1,1)
 
     if method == "basic"
-        rtrn = [price_atlas_normal(Notional,T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:num_of_sim]
+        rtrn = [price_atlas_normal(T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
-        rtrn = [price_atlas_antithetic_variates(Notional,T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:Int(round(num_of_sim)/2)]
+        rtrn = [price_atlas_antithetic_variates(T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:Int(round(num_of_sim)/2)]
     elseif method == "quasi_monte_carlo"
-        rtrn = [price_atlas_quasi_monte_carlo(Notional,T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:num_of_sim]
-    elseif method == "moment_matching"
-        rtrn = [price_atlas_moment_matching(Notional,T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:num_of_sim]
+        rtrn = [price_atlas_quasi_monte_carlo(T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2, sobolSeq) for iteration in 1:num_of_sim]
     elseif method == "LHS"
-        rtrn = [price_atlas_LHS(Notional,T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:num_of_sim]
+        rtrn = [price_atlas_LHS(T, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:num_of_sim]
     else
         return "no method found"
     end

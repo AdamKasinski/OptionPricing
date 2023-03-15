@@ -95,7 +95,7 @@ function price_annapurna_moment_matching(num_of_sim::Int,α::Float64,T::Int, tre
     all_values::Array{Float64} = sum(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
     all_values[all_values.<=0] .=0
     if length(coupons) !=0
-        all_values = hcat(all_values,coupons)
+        all_values = hcat(all_values,coupons')
     end
     θ::Float64 = mean(all_values)
     s::Float64 = std(all_values)

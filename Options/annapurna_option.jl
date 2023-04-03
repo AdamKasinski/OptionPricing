@@ -1,22 +1,23 @@
 using LinearAlgebra, Distributions, Statistics, Sobol, LatinHypercubeSampling
 
 
-function generateBasket(basket_volume::Int,T::Int,S₀::Array{Float64},mu::Array{Float64},sigma::Array{Float64},epsilon::Matrix{Float64})
-    assets::Matrix{Float64} = zeros(basket_volume,T)
-    for t in 1:T
-        assets[:,t] = S₀.*exp.((mu .- 0.5.*sigma.^2).*(1/T) .+ sigma.*sqrt(1/T).*epsilon[t,:])
+function generateBasket(basket_volume::Int,dt::Float64, N::Int,S₀::Array{Float64},mu::Array{Float64},sigma::Array{Float64},epsilon::Matrix{Float64})
+    assets::Matrix{Float64} = zeros(basket_volume,N)
+    for t in 1:N
+        assets[:,t] = S₀.*exp.((mu .- 0.5.*sigma.^2).*(dt) .+ sigma.*sqrt(dt).*epsilon[t,:])
         S₀ = assets[:,t]
     end
     return assets
 end
 
-function price_annapurna_normal(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
+function price_annapurna_normal(T::Int, N::Int, treshold::Float64, r::Float64, K::Float64, C::Float64, 
                                 basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
+    dt::Float64 = T/N
     d = Normal()
-    Z::Matrix{Float64} = rand(d,(basket_volume,T))
+    Z::Matrix{Float64} = rand(d,(basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
         return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
     else
@@ -24,13 +25,14 @@ function price_annapurna_normal(T::Int, treshold::Float64, r::Float64, K::Float6
     end
 end
 
-function price_annapurna_LHS(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
+function price_annapurna_LHS(T::Int,N::Int, treshold::Float64, r::Float64, K::Float64, C::Float64, 
                                     basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
 
-    Z::Matrix{Float64} = scaleLHC(randomLHC(T,basket_volume),[(-1,1),(-1,1),(-1,1)])'
+    dt::Float64 = T/N
+    Z::Matrix{Float64} = quantile(Normal(),scaleLHC(randomLHC(N,basket_volume),[(0.001,0.999),(0.001,0.999),(0.001,0.999)])')
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
         return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
     else
@@ -38,15 +40,17 @@ function price_annapurna_LHS(T::Int, treshold::Float64, r::Float64, K::Float64, 
     end
 end
 
-function price_annapurna_antithetic_variates(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
+
+function price_annapurna_antithetic_variates(T::Int, N::Int, treshold::Float64, r::Float64, K::Float64, C::Float64, 
                             basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
+    dt::Float64 = T/N
     d = Normal()
-    Z::Matrix{Float64} = rand(d,(basket_volume,T))
+    Z::Matrix{Float64} = rand(d,(basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
     antithetic_delta::Matrix{Float64} = -Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
-    antithetic_assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,antithetic_delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
+    antithetic_assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,antithetic_delta)
     if any(x->x < treshold, assets./S₀) || any(x->x < treshold, antithetic_assets./S₀)
         return 0.5*(max(mean(assets[:,end])*ℯ^(-r*T)-K,0) + max(mean(antithetic_assets[:,end])*ℯ^(-r*T)-K,0))
     else
@@ -54,13 +58,14 @@ function price_annapurna_antithetic_variates(T::Int, treshold::Float64, r::Float
     end
 end
 
-function price_annapurna_quasi_monte_carlo(T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
-                            basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64},sobolSeq)
-    s = sobolSeq
-    Z::Matrix{Float64} = reshape(reduce(hcat, next!(s) for i = 1:T*basket_volume),basket_volume,T)
+function price_annapurna_quasi_monte_carlo(T::Int,N::Int, treshold::Float64, r::Float64, K::Float64, C::Float64, 
+                            basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
+    dt::Float64 = T/N
+    s = sobolSeq(0,1)
+    Z::Matrix{Float64} = quantile(Normal(),reshape(reduce(hcat, next!(s) for i = 1:N*basket_volume),basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
         return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
     else
@@ -69,18 +74,18 @@ function price_annapurna_quasi_monte_carlo(T::Int, treshold::Float64, r::Float64
 end
 
 
-function price_annapurna_moment_matching(num_of_sim::Int,α::Float64,T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
+function price_annapurna_moment_matching(num_of_sim::Int,α::Float64,T::Int,N::Int, treshold::Float64, r::Float64, K::Float64, C::Float64, 
                         basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
-    
+    dt::Float64 = T/N
     coupons::Array{Float64} = [] #it is not possible to say what capacity should be 
     assets_to_optimise::Matrix{Float64} = zeros(basket_volume,num_of_sim) #create matrix for pesimistic scenario where each path reach barrier 
     how_many_assets_to_optimise::Int = 0
     d = Normal()
     for iteration in 1:num_of_sim
-        Z::Matrix{Float64} = rand(d,(basket_volume,T))
+        Z::Matrix{Float64} = rand(d,(basket_volume,N))
         cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
         delta::Matrix{Float64} = Z'cholesky_matrix
-        assets::Matrix{Float64} = generateBasket(basket_volume,T,S₀,mu,sigma,delta)
+        assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
         
         if any(x->x < treshold, assets./S₀)
             how_many_assets_to_optimise+=1
@@ -90,7 +95,7 @@ function price_annapurna_moment_matching(num_of_sim::Int,α::Float64,T::Int, tre
         end
     end
     
-    S₀df::Array{Float64} = S₀.*ℯ^(r*T)
+    S₀df::Array{Float64} = S₀*ℯ^(r*T)
     assets_to_calculate::Matrix{Float64} = assets_to_optimise[:,1:how_many_assets_to_optimise].*S₀df./mean(assets_to_optimise[:,1:how_many_assets_to_optimise],dims=2)
     all_values::Array{Float64} = mean(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
     all_values[all_values.<=0] .=0
@@ -104,24 +109,18 @@ function price_annapurna_moment_matching(num_of_sim::Int,α::Float64,T::Int, tre
 end
 
 
-
-function annapurna_option_monte_carlo(num_of_sim::Int, α::Float64, T::Int, treshold::Float64, r::Float64, K::Float64, C::Float64,periods::Array{Int}, 
+function annapurna_option_monte_carlo(num_of_sim::Int, α::Float64, T::Int, N::Int, treshold::Float64, r::Float64, K::Float64, C::Float64, 
         basket_volume::Int, S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64},method="basic")
     len = num_of_sim
-    if method == "antithetic"
-        len = Int(round(num_of_sim/2))
-    end
+    
     rtrn::Array{Float64,1} = zeros(len)
-    sobolSeq = SobolSeq(-1,1)
 
     if method == "basic"
-        rtrn = [price_annapurna_normal(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_annapurna_normal(T, N, treshold, r, K, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
-        rtrn = [price_annapurna_antithetic_variates(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:Int(round(num_of_sim)/2)]
-    elseif method == "quasi_monte_carlo"
-        rtrn = [price_annapurna_quasi_monte_carlo(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix,sobolSeq) for iteration in 1:num_of_sim]
+        rtrn = [price_annapurna_antithetic_variates(T,N, treshold, r, K, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "LHS"
-        rtrn = [price_annapurna_LHS(T, treshold, r, K, C,periods, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_annapurna_LHS(T,N, treshold, r, K, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     else
         return "no method found"
     end

@@ -67,7 +67,7 @@ end
 function price_everest_quasi_monte_carlo(T::Int, N::Int, r::Float64, C::Float64, basket_volume::Int, 
                                         S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64})
     dt::Float64 = T/N
-    s = sobolSeq(0,1)
+    s = SobolSeq(0,1)
     Z::Matrix{Float64} = quantile(Normal(),reshape(reduce(hcat, next!(s) for i = 1:N*basket_volume),basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
@@ -104,7 +104,9 @@ function everest_option_monte_carlo(num_of_sim::Int, α::Float64,T::Int,N::Int, 
     len = num_of_sim
     rtrn::Array{Float64,1} = zeros(len)
 
-    if method == "basic"
+    if method == "quasi_monte_carlo"
+        return price_everest_quasi_monte_carlo(T, N, r, C, basket_volume, S₀, mu, sigma, correlation_matrix)
+    elseif method == "basic"
         rtrn = [price_everest_normal(T, N, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
         rtrn = [price_everest_antithetic_variates(T, N, r, C, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:Int(round(num_of_sim)/2)]

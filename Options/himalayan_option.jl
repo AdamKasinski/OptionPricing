@@ -28,6 +28,8 @@ function price_himalayan_normal(r::Float64, basket_volume::Int, S₀::Array{Floa
         filter!(e->e≠stock,available_stocks)
     end
 
+    highest_values = highest_values./assets[:,1]
+
     return mean(highest_values)*ℯ^(-r*T) 
 end
 
@@ -48,6 +50,8 @@ function price_himalayan_LHS(r::Float64, basket_volume::Int, S₀::Array{Float64
         highest_values[year+1] = highest_price
         filter!(e->e≠stock,available_stocks)
     end
+
+    highest_values = highest_values./assets[:,1]
 
     return mean(highest_values)*ℯ^(-r*T) 
 end
@@ -71,14 +75,16 @@ function price_himalayan_moment_matching(num_of_sim::Int,α::Float64, r::Float64
         for year in 0:basket_volume-1
             highest_price, stock = findmax(assets[available_stocks,year*4+1:year*4+3+1])
             highest_values[year+1] = highest_price
-            filter!(e->e≠stock,available_stocks)
+            available_stocks = filter!(e->e≠stock,available_stocks)
         end
         assets_to_optimise[iteration] = mean(highest_values)
     end
     assets_to_calculate::Array{Float64} = (assets_to_optimise./mean(assets_to_optimise))*ℯ^(-r*T)
+    
     θ::Float64 = mean(assets_to_calculate)
     s::Float64 = std(assets_to_calculate)
     confidence::Float64 = quantile(Normal(), 1-α/2)
+    
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]
     
     
@@ -90,7 +96,7 @@ function price_himalayan_quasi_monte_carlo(r::Float64, basket_volume::Int, S₀:
     T::Int = basket_volume
     N::Int = basket_volume*250
     dt::Float64 = T/N
-    s = sobolSeq(0,1)
+    s = SobolSeq(0,1)
     Z::Matrix{Float64} = quantile(Normal(),reshape(reduce(hcat, next!(s) for i = 1:N*basket_volume),basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
@@ -104,6 +110,8 @@ function price_himalayan_quasi_monte_carlo(r::Float64, basket_volume::Int, S₀:
         highest_values[year+1] = highest_price
         filter!(e->e≠stock,available_stocks)
     end
+
+    highest_values = highest_values./assets[:,1]
 
     return mean(highest_values)*ℯ^(-r*T)
 end
@@ -136,6 +144,10 @@ function price_himalayan_antithetic(r::Float64, basket_volume::Int, S₀::Array{
         filter!(e->e≠stock_antithetic,available_stocks_antithetic)
     end
 
+    highest_values = highest_values./assets[:,1]
+    
+    highest_values_antithetic = highest_values_antithetic./assets[:,1]
+
     return 0.5*(mean(highest_values) + mean(highest_values_antithetic))*ℯ^(-r*T)
 end
 
@@ -147,7 +159,9 @@ function himalayan_option_monte_carlo(num_of_sim::Int, α::Float64,r::Float64, b
     
     rtrn::Array{Float64,1} = zeros(len)
 
-    if method == "basic"
+    if method == "quasi_monte_carlo"
+        return price_himalayan_quasi_monte_carlo(r, basket_volume, S₀, mu, sigma, correlation_matrix)
+    elseif method == "basic"
         rtrn = [price_himalayan_normal(r, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
         rtrn = [price_himalayan_antithetic(r, basket_volume, S₀, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]

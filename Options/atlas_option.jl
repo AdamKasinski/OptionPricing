@@ -9,7 +9,7 @@ function generateBasket(basket_volume::Int,dt::Float64, N::Int,S₀::Array{Float
     return assets
 end
 
-function price_atlas_normal(T::Int,N:Int, r::Float64, K::Float64, basket_volume::Int, 
+function price_atlas_normal(T::Int,N::Int, r::Float64, K::Float64, basket_volume::Int, 
                             S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int)
     dt::Float64 = T/N
     d = Normal()
@@ -70,7 +70,7 @@ end
 function price_atlas_quasi_monte_carlo(T::Int, N::Int, r::Float64, K::Float64, basket_volume::Int, 
                                         S₀::Array{Float64}, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Array{Float64},n1::Int,n2::Int)
     dt::Float64 = T/N
-    s = sobolSeq(0,1)
+    s = SobolSeq(0,1)
     Z::Matrix{Float64} = quantile(Normal(),reshape(reduce(hcat, next!(s) for i = 1:N*basket_volume),basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
@@ -109,7 +109,10 @@ function atlas_option_monte_carlo(num_of_sim::Int, α::Float64,T::Int, N::Int, r
     len = num_of_sim
     rtrn::Array{Float64,1} = zeros(len)
 
-    if method == "basic"
+    if method == "quasi_monte_carlo"
+        return price_atlas_quasi_monte_carlo(T, N, r, K, basket_volume, S₀, mu, sigma, correlation_matrix, n1, n2)
+
+    elseif method == "basic"
         rtrn = [price_atlas_normal(T, N, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
         rtrn = [price_atlas_antithetic_variates(T,N, r, K, basket_volume, S₀, mu, sigma, correlation_matrix,n1,n2) for iteration in 1:Int(round(num_of_sim)/2)]

@@ -159,6 +159,8 @@ function himalayan_option_monte_carlo(num_of_sim::Int, α::Float64,r::Float64, b
     len = num_of_sim
     
     rtrn::Array{Float64,1} = zeros(len)
+    
+    T::Int = basket_volume
 
     if method == "quasi_monte_carlo"
         return price_himalayan_quasi_monte_carlo(r, basket_volume, S₀, K, mu, sigma, correlation_matrix)

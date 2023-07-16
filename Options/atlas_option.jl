@@ -19,7 +19,7 @@ function price_atlas_normal(T::Int,N::Int, r::Float64, K::Float64, basket_volume
     assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     remaining_stocks = sortperm(@views (assets[:,end] - S₀)./S₀)[n1:end-n2-1]
 
-    return mean(assets[remaining_stocks])*ℯ^(-r*T) - K
+    return mean(assets[remaining_stocks]) - K
 
 end
 
@@ -35,7 +35,7 @@ function price_atlas_LHS(T::Int, N::Int, r::Float64, K::Float64, basket_volume::
 
     remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - S₀)./S₀)[n1:end-n2-1]
 
-    return mean(assets[remaining_stocks])*ℯ^(-r*T) - K
+    return mean(assets[remaining_stocks]) - K
 
 end
 
@@ -58,9 +58,9 @@ function price_atlas_moment_matching(num_of_sim::Int, α::Float64,T::Int, N::Int
         stocks_indices = sortperm(@views ((remaining_stocks[:,asst] .- S₀)./S₀))[n1:end-n2-1]
         assets_to_calculate[:,asst] = remaining_stocks[stocks_indices]
     end
-    all_values::Array{Float64} = mean(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
-    θ::Float64 = mean(all_values)
-    s::Float64 = std(all_values)
+    all_values::Array{Float64} = mean(assets_to_calculate,dims=1) .- K
+    θ::Float64 = mean(all_values*ℯ^(-r*T))
+    s::Float64 = std(all_values*ℯ^(-r*T))
     confidence::Float64 = quantile(Normal(), 1-α/2)
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]
 
@@ -78,7 +78,7 @@ function price_atlas_quasi_monte_carlo(T::Int, N::Int, r::Float64, K::Float64, b
 
     remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] -S₀)./S₀)[n1:end-n2-1]
 
-    return mean(assets[remaining_stocks])*ℯ^(-r*T) - K
+    return (mean(assets[remaining_stocks]) - K)*ℯ^(-r*T)
 
 end
 
@@ -98,7 +98,7 @@ function price_atlas_antithetic_variates(T::Int, N::Int, r::Float64, K::Float64,
     remaining_stocks::Array{Int} = sortperm(@views (assets[:,end] - S₀)./S₀)[n1:end-n2-1]
     antithetic_remaining_stocks::Array{Int} = sortperm(@views (antithetic_assets[:,end] - S₀)./S₀)[n1:end-n2-1]
 
-    return 0.5*((mean(assets[remaining_stocks])*ℯ^(-r*T)- K) + (mean(assets[antithetic_remaining_stocks])*ℯ^(-r*T) - K))
+    return 0.5*((mean(assets[remaining_stocks]) - K) + (mean(assets[antithetic_remaining_stocks]) - K))
 
 end
 
@@ -122,8 +122,8 @@ function atlas_option_monte_carlo(num_of_sim::Int, α::Float64,T::Int, N::Int, r
         return "no method found"
     end
 
-    θ::Float64 = mean(rtrn)
-    s::Float64 = std(rtrn)
+    θ::Float64 = mean(rtrn*ℯ^(-r*T))
+    s::Float64 = std(rtrn*ℯ^(-r*T))
     confidence::Float64 = quantile(Normal(), 1-α/2)
 
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]

@@ -21,7 +21,7 @@ function price_everest_normal(T::Int, N::Int, r::Float64, C::Float64, basket_vol
     assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     worst_performing::Int = argmin(@views (assets[:,end] - S₀)./S₀)
 
-    return (C+assets[worst_performing,end])*ℯ^(-r*T)
+    return (C+assets[worst_performing,end])
     
 end
 
@@ -35,7 +35,7 @@ function price_everest_LHS(T::Int, N::Int, r::Float64, C::Float64, basket_volume
     assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     worst_performing::Int = argmin(@views (assets[:,end] - S₀)./S₀)
 
-    return (C+assets[worst_performing,end])*ℯ^(-r*T)
+    return (C+assets[worst_performing,end])
     
 end
 
@@ -94,7 +94,7 @@ function price_everest_antithetic_variates(T::Int,N::Int, r::Float64, C::Float64
     worst_performing::Int = argmin(@views (assets[:,end] - S₀)./S₀)
     antithetic_worst_performing::Int = argmin(@views (antithetic_assets[:,end] - S₀)./S₀)
 
-    return C+0.5*(assets[worst_performing,end]*ℯ^(-r*T)+assets[antithetic_worst_performing,end]*ℯ^(-r*T))
+    return C+0.5*(assets[worst_performing,end]+assets[antithetic_worst_performing,end])
 
 end
 
@@ -116,8 +116,8 @@ function everest_option_monte_carlo(num_of_sim::Int, α::Float64,T::Int,N::Int, 
         return "no method found"
     end
 
-    θ::Float64 = mean(rtrn)
-    s::Float64 = std(rtrn)
+    θ::Float64 = mean(rtrn*ℯ^(-r*T))
+    s::Float64 = std(rtrn*ℯ^(-r*T))
     confidence::Float64 = quantile(Normal(), 1-α/2)
 
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]

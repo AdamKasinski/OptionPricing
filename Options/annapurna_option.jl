@@ -21,9 +21,9 @@ function price_annapurna_normal(T::Int, N::Int, treshold::Float64, r::Float64, K
     delta::Matrix{Float64} = Z'cholesky_matrix
     assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
-        return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
+        return max(mean(assets[:,end])-K,0)
     else
-        return C*ℯ^(-r*T)
+        return C
     end
 end
 
@@ -38,9 +38,9 @@ function price_annapurna_LHS(T::Int,N::Int, treshold::Float64, r::Float64, K::Fl
     delta::Matrix{Float64} = Z'cholesky_matrix
     assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
-        return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
+        return max(mean(assets[:,end])-K,0)
     else
-        return C*ℯ^(-r*T)
+        return C
     end
 end
 
@@ -58,9 +58,9 @@ function price_annapurna_antithetic_variates(T::Int, N::Int, treshold::Float64, 
     assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     antithetic_assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,antithetic_delta)
     if any(x->x < treshold, assets./S₀) || any(x->x < treshold, antithetic_assets./S₀)
-        return 0.5*(max(mean(assets[:,end])*ℯ^(-r*T)-K,0) + max(mean(antithetic_assets[:,end])*ℯ^(-r*T)-K,0))
+        return 0.5*(max(mean(assets[:,end])-K,0) + max(mean(antithetic_assets[:,end])-K,0))
     else
-        return C*ℯ^(-r*T)
+        return C
     end
 end
 
@@ -76,7 +76,7 @@ function price_annapurna_quasi_monte_carlo(T::Int,N::Int, treshold::Float64, r::
     delta::Matrix{Float64} = Z'cholesky_matrix
     assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
     if any(x->x < treshold, assets./S₀)
-        return max(mean(assets[:,end])*ℯ^(-r*T)-K,0)
+        return max(mean(assets[:,end])-K,0)*ℯ^(-r*T)
     else
         return C*ℯ^(-r*T)
     end
@@ -103,20 +103,20 @@ function price_annapurna_moment_matching(num_of_sim::Int,α::Float64,T::Int,N::I
             how_many_assets_to_optimise+=1
             assets_to_optimise[:,how_many_assets_to_optimise] = assets[:,end]
         else
-            push!(coupons,C*ℯ^(-r*T))
+            push!(coupons,C)
         end
     end
     
     S₀df::Array{Float64} = S₀*ℯ^(r*T)
     assets_to_calculate::Matrix{Float64} = assets_to_optimise[:,1:how_many_assets_to_optimise].*S₀df./
                                         mean(assets_to_optimise[:,1:how_many_assets_to_optimise],dims=2)
-    all_values::Array{Float64} = mean(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
+    all_values::Array{Float64} = mean(assets_to_calculate,dims=1) .- K
     all_values[all_values.<=0] .=0
     if length(coupons) !=0
         all_values = hcat(all_values,coupons')
     end
-    θ::Float64 = mean(all_values)
-    s::Float64 = std(all_values)
+    θ::Float64 = mean(all_values*ℯ^(-r*T))
+    s::Float64 = std(all_values*ℯ^(-r*T))
     confidence::Float64 = quantile(Normal(), 1-α/2)
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]
 end
@@ -146,8 +146,8 @@ function annapurna_option_monte_carlo(num_of_sim::Int, α::Float64, T::Int, N::I
         return "no method found"
     end
 
-    θ::Float64 = mean(rtrn)
-    s::Float64 = std(rtrn)
+    θ::Float64 = mean(rtrn*ℯ^(-r*T))
+    s::Float64 = std(rtrn*ℯ^(-r*T))
     confidence::Float64 = quantile(Normal(), 1-α/2)
     
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]

@@ -98,21 +98,21 @@ function price_altiplano_moment_matching(num_of_sim::Int,α::Float64,T::Int,N::I
         
         if any(x->x > treshold, assets./S₀)
             how_many_assets_to_optimise+=1
-            assets_to_optimise[:,how_many_assets_to_optimise] = assets[:,end]./assets[:,1]
+            assets_to_optimise[:,how_many_assets_to_optimise] = assets[:,end]
         else
-            push!(coupons,C*ℯ^(-r*T))
+            push!(coupons,C)
         end
     end
     
     S₀df::Array{Float64} = S₀*ℯ^(r*T)
     assets_to_calculate::Matrix{Float64} = assets_to_optimise[:,1:how_many_assets_to_optimise].*S₀df./mean(assets_to_optimise[:,1:how_many_assets_to_optimise],dims=2)
-    all_values::Array{Float64} = mean(assets_to_calculate,dims=1)*ℯ^(-r*T) .- K
+    all_values::Array{Float64} = mean(assets_to_calculate,dims=1) .- K
     all_values[all_values.<=0] .=0
     if length(coupons) !=0
         all_values = hcat(all_values,coupons')
     end
-    θ::Float64 = mean(all_values)
-    s::Float64 = std(all_values)
+    θ::Float64 = mean(all_values*ℯ^(-r*T))
+    s::Float64 = std(all_values*ℯ^(-r*T))
     confidence::Float64 = quantile(Normal(), 1-α/2)
     return [θ, θ - confidence*s/sqrt(num_of_sim), θ + confidence*s/sqrt(num_of_sim)]
 end

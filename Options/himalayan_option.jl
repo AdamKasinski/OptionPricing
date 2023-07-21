@@ -1,15 +1,16 @@
 using LinearAlgebra, Distributions, Statistics, Sobol, LatinHypercubeSampling
 
-function generateBasket(basket_volume::Int,dt::Float64, N::Int,S₀::Array{Float64},mu::Array{Float64},sigma::Array{Float64},epsilon::Matrix{Float64})
+function generateBasket(basket_volume::Int,dt::Float64, N::Int,S₀::Array{Float64},r::Float64,
+                        sigma::Array{Float64},epsilon::Matrix{Float64})
     assets::Matrix{Float64} = zeros(basket_volume,N)
     for t in 1:N
-        assets[:,t] = S₀.*exp.((mu .- 0.5.*sigma.^2).*(dt) .+ sigma.*sqrt(dt).*epsilon[t,:])
+        assets[:,t] = S₀.*exp.((r .- 0.5.*sigma.^2).*(dt) .+ sigma.*sqrt(dt).*epsilon[t,:])
         S₀ = assets[:,t]
     end
     return assets
 end
 
-function price_himalayan_normal(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64}) 
+function price_himalayan_normal(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64,  sigma::Array{Float64}, correlation_matrix::Matrix{Float64}) 
     T::Int = basket_volume
     N::Int = basket_volume*250
     dt::Float64 = T/N
@@ -17,7 +18,7 @@ function price_himalayan_normal(r::Float64, basket_volume::Int, S₀::Array{Floa
     Z::Matrix{Float64} = rand(d,(basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,r,sigma,delta)
     
     highest_values::Array{Float64} = zeros(basket_volume)
     available_stocks::Array{Int} = [i for i in 1:basket_volume]
@@ -31,14 +32,14 @@ function price_himalayan_normal(r::Float64, basket_volume::Int, S₀::Array{Floa
     return max(mean(highest_values) - K, 0.0)
 end
 
-function price_himalayan_LHS(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64, mu::Array{Float64}, sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
+function price_himalayan_LHS(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64,  sigma::Array{Float64}, correlation_matrix::Matrix{Float64})
     T::Int = basket_volume
     N::Int = basket_volume*250
     dt::Float64 = T/N
     Z::Matrix{Float64} = quantile(Normal(),scaleLHC(randomLHC(N,basket_volume),[(0.001,0.999),(0.001,0.999),(0.001,0.999)])')
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,r,sigma,delta)
     highest_values::Array{Float64} = zeros(basket_volume)
     available_stocks::Array{Int} = [i for i in 1:basket_volume]
     
@@ -51,7 +52,7 @@ function price_himalayan_LHS(r::Float64, basket_volume::Int, S₀::Array{Float64
     return max(mean(highest_values) - K, 0.0)
 end
 
-function price_himalayan_moment_matching(num_of_sim::Int,α::Float64, r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64, mu::Array{Float64}, sigma::Array{Float64}, 
+function price_himalayan_moment_matching(num_of_sim::Int,α::Float64, r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64,  sigma::Array{Float64}, 
                                         correlation_matrix::Matrix{Float64})
     
     T::Int = basket_volume
@@ -64,7 +65,7 @@ function price_himalayan_moment_matching(num_of_sim::Int,α::Float64, r::Float64
         Z::Matrix{Float64} = rand(d,(basket_volume,N))
         cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
         delta::Matrix{Float64} = Z'cholesky_matrix
-        assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
+        assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,r,sigma,delta)
         highest_values::Array{Float64} = zeros(basket_volume)
         available_stocks::Array{Int} = [i for i in 1:basket_volume]
         for year in 1:basket_volume
@@ -91,7 +92,7 @@ function price_himalayan_moment_matching(num_of_sim::Int,α::Float64, r::Float64
 end
 
 
-function price_himalayan_quasi_monte_carlo(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64, mu::Array{Float64}, sigma::Array{Float64}, 
+function price_himalayan_quasi_monte_carlo(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64,  sigma::Array{Float64}, 
                                             correlation_matrix::Matrix{Float64})
 
     T::Int = basket_volume
@@ -101,7 +102,7 @@ function price_himalayan_quasi_monte_carlo(r::Float64, basket_volume::Int, S₀:
     Z::Matrix{Float64} = quantile(Normal(),reshape(reduce(hcat, next!(s) for i = 1:N*basket_volume),basket_volume,N))
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,r,sigma,delta)
     
     highest_values::Array{Float64} = zeros(basket_volume)
     available_stocks::Array{Int} = [i for i in 1:basket_volume]
@@ -115,7 +116,7 @@ function price_himalayan_quasi_monte_carlo(r::Float64, basket_volume::Int, S₀:
     return max(mean(highest_values) - K, 0.0)*ℯ^(-r*T)
 end
 
-function price_himalayan_antithetic(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64, mu::Array{Float64}, sigma::Array{Float64}, 
+function price_himalayan_antithetic(r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64,  sigma::Array{Float64}, 
                                     correlation_matrix::Matrix{Float64})
     
     T::Int = basket_volume
@@ -126,8 +127,8 @@ function price_himalayan_antithetic(r::Float64, basket_volume::Int, S₀::Array{
     cholesky_matrix::Matrix{Float64} = cholesky(correlation_matrix).L
     delta::Matrix{Float64} = Z'cholesky_matrix
     antithetic_delta::Matrix{Float64} = -Z'cholesky_matrix
-    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,delta)
-    antithetic_assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,mu,sigma,antithetic_delta)
+    assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,r,sigma,delta)
+    antithetic_assets::Matrix{Float64} = generateBasket(basket_volume,dt,N,S₀,r,sigma,antithetic_delta)
     
     highest_values::Array{Float64} = zeros(basket_volume)
     available_stocks::Array{Int} = [i for i in 1:basket_volume]
@@ -153,7 +154,7 @@ function price_himalayan_antithetic(r::Float64, basket_volume::Int, S₀::Array{
 end
 
 
-function himalayan_option_monte_carlo(num_of_sim::Int, α::Float64,r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64, mu::Array{Float64}, 
+function himalayan_option_monte_carlo(num_of_sim::Int, α::Float64,r::Float64, basket_volume::Int, S₀::Array{Float64}, K::Float64,  
                                     sigma::Array{Float64}, correlation_matrix::Matrix{Float64},method::String)
     
     len = num_of_sim
@@ -163,13 +164,13 @@ function himalayan_option_monte_carlo(num_of_sim::Int, α::Float64,r::Float64, b
     T::Int = basket_volume
 
     if method == "quasi_monte_carlo"
-        return price_himalayan_quasi_monte_carlo(r, basket_volume, S₀, K, mu, sigma, correlation_matrix)
+        return price_himalayan_quasi_monte_carlo(r, basket_volume, S₀, K,   sigma, correlation_matrix)
     elseif method == "basic"
-        rtrn = [price_himalayan_normal(r, basket_volume, S₀, K, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_himalayan_normal(r, basket_volume, S₀, K,   sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "antithetic"
-        rtrn = [price_himalayan_antithetic(r, basket_volume, S₀, K, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_himalayan_antithetic(r, basket_volume, S₀, K,   sigma, correlation_matrix) for iteration in 1:num_of_sim]
     elseif method == "LHS"
-        rtrn = [price_himalayan_LHS(r, basket_volume, S₀, K, mu, sigma, correlation_matrix) for iteration in 1:num_of_sim]
+        rtrn = [price_himalayan_LHS(r, basket_volume, S₀, K,   sigma, correlation_matrix) for iteration in 1:num_of_sim]
     else
         return "no method found"
     end

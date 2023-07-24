@@ -129,3 +129,12 @@ function atlas_option_monte_carlo(num_of_sim::Int, α::Float64,T::Int, N::Int, r
 end
 
 
+
+cov_matrix = [1.0 0.3 0.4; 0.3 1.0 0.1; 0.4 0.1 1.0] 
+
+atlas_option_monte_carlo(10,0.01,1,3,0.03, 8.0,3,[10.0,10.0,10.0],
+                                        [0.15,0.15,0.15], cov_matrix, 1, 1, "LHS")
+
+
+
+
